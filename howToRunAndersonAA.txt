@@ -1,0 +1,47 @@
+How to use Anderson Alias Analysis in LLVM:
+
+1. take basic c program (trivial one)
+  eg.
+  int a;
+  int main()
+  {
+      int *p, *q;
+      a = 20;
+      p = &a;
+      q = p;
+     return 0;
+  }
+
+2. compiled LLVM IR is,
+
+  5 @a = common global i32 0, align 4
+  6
+  7 ; Function Attrs: nounwind uwtable
+  8 define i32 @main() #0 {
+  9 entry:
+ 10   %retval = alloca i32, align 4
+ 11   %p = alloca i32*, align 8
+ 12   %q = alloca i32*, align 8
+ 13   store i32 0, i32* %retval
+ 14   store i32 20, i32* @a, align 4
+ 15   store i32* @a, i32** %p, align 8
+ 16   %0 = load i32** %p, align 8
+ 17   store i32* %0, i32** %q, align 8
+ 18   ret i32 0
+ 19 }
+
+3. run the alias analysis on the program using following cmd,
+  $ opt -load ../Release+Asserts/lib/libAnders.so -anders-aa -aa-eval -print-all-alias-modref-info -disable-output < test.bc
+
+4. Result,
+  Function: main: 5 pointers, 0 call sites
+  NoAlias:  i32* %retval, i32** %p
+  NoAlias:  i32* %retval, i32** %q
+  NoAlias:  i32** %p, i32** %q
+  NoAlias:  i32* %retval, i32* @a
+  NoAlias:  i32* @a, i32** %p
+  NoAlias:  i32* @a, i32** %q
+  NoAlias:  i32* %0, i32* %retval
+  NoAlias:  i32* %0, i32** %p
+  NoAlias:  i32* %0, i32** %q
+  MustAlias:    i32* %0, i32* @a
